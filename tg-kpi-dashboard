@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trash Gxng — Marketing KPI Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .bar-fill { transition: width 0.4s ease; }
+  </style>
+</head>
+<body class="bg-gray-50">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState } = React;
+
+const WEEKS = ["07 Apr", "14 Apr", "21 Apr", "28 Apr"];
+
+const DATA = {
+  // ── How to add a new week ────────────────────────────────────────
+  // 1. Copy the block below, change the date key (e.g. "05 May")
+  // 2. Add that key to the WEEKS array above
+  // 3. Fill in the numbers — use true/false for yes/no fields
+  // ────────────────────────────────────────────────────────────────
+  "07 Apr": {
+    igFollowers: 3420, igFollowersPrev: 3285,
+    ttFollowers: 1190, ttFollowersPrev: 1140,
+    chloe: {
+      approvalsOnTime: true,
+      igReel: 1,
+      ttVideo: 1,
+      dmResponse: true,
+      reportDone: false,
+    },
+    julia: {
+      igReel: 1,
+      ttVideos: 2,
+      outreach: 7,
+      updateSent: true,
+    },
+    marion: {
+      igPosts: 3,
+      newsletter: false,
+      storiesDays: 3,
+      calendarDone: false,
+    },
+    ife: {
+      blogs: 1,
+      hours: 4,
+      dailyUpdates: 3
