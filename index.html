@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trash Gxng — Marketing KPI Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    /* smooth bar transitions */
+    .bar-fill { transition: width 0.4s ease; }
+  </style>
+</head>
+<body class="bg-gray-50">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState } = React;
+
+// ═══════════════════════════════════════════════════════════════
+// DATA — update this section each week
+// Add a new week block to DATA and add the key to WEEKS.
+// igFollowersPrev / ttFollowersPrev = last week's count.
+// ═══════════════════════════════════════════════════════════════
+
+const WEEKS = ["07 Apr", "14 Apr", "21 Apr", "28 Apr"];
+
+const DATA = {
+  // ── How to add a new week ────────────────────────────────────────
+  // 1. Copy the block below, change the date key (e.g. "05 May")
+  // 2. Add that key to the WEEKS array above
+  // 3. Fill in the numbers — use true/false for yes/no fields
+  // ────────────────────────────────────────────────────────────────
+  "07 Apr": {
+    igFollowers: 3420, igFollowersPrev: 3285,   // Instagram follower counts
+    ttFollowers: 1190, ttFollowersPrev: 1140,   // TikTok follower counts
+    chloe: {
+      approvalsOnTime: true,   // All content approved within 24 hrs? true/false
+      igReel: 1,               // Number of Reels Chloe published (target: 1)
+      ttVideo: 1,              // Number of TikToks Chloe published (target: 1)
+      dmResponse: true,        // DMs/comments responded to within 4 hrs on working days? true/false
+      reportDone: false,       // Monthly performance report submitted? true/false
+    },
+    julia: {
+      igReel: 1,               // Number of Reels Julia published (target: 1)
+      ttVideos: 2,             // Number of TikToks Julia published (target: 2)
+      outreach: 7,             // Influencer/blogger contacts made this month (target: 7)
+      updateSent: true,        // Weekly update sent to Chloe? true/false
+    },
+    marion: {
+      igPosts: 3,              // Instagram feed posts published (target: 3)
+      newsletter: false,       // Email newsletter sent this week? true/false
+      storiesDays: 3,          // Days Stories were posted this week (target: 3)
+      calendarDone: false,     // Content calendar published for next month? true/false (monthly)
+    },
+    ife: {
+      blogs: 1,                // Blog/website posts published this month (target: 1)
+      hours: 4,                // Hours worked this week (target: 4)
+      dailyUpdates: 3,         // Days Ife sent daily update to Chloe (target: 4)
+      pressDone: false,        // Press release drafted this month? true/false
+    },
+  },
+  "14 Apr": {
+    igFollowers: 3508, igFollowersPrev: 3420,
+    ttFollowers: 1240, ttFollowersPrev: 1190,
+    chloe:  { approvalsOnTime: false, igReel: 1,  ttVideo: 0, dmResponse: true,  reportDone: false },
+    julia:  { igReel: 1, ttVideos: 2, outreach: 5,  updateSent: true  },
+    marion: { igPosts: 4, newsletter: true,  storiesDays: 3, calendarDone: true  },
+    ife:    { blogs: 0, hours: 3, dailyUpdates: 2, pressDone: false },
+  },
+  "21 Apr": {
+    igFollowers: 3590, igFollowersPrev: 3508,
+    ttFollowers: 1302, ttFollowersPrev: 1240,
+    chloe:  { approvalsOnTime: true,  igReel: 1,  ttVideo: 1, dmResponse: true,  reportDone: false },
+    julia:  { igReel: 1, ttVideos: 2, outreach: 9,  updateSent: true  },
+    marion: { igPosts: 3, newsletter: true,  storiesDays: 2, calendarDone: false },
+    ife:    { blogs: 1, hours: 4, dailyUpdates: 4, pressDone: false },
+  },
+  "28 Apr": {
+    igFollowers: 3660, igFollowersPrev: 3590,
+    ttFollowers: 1380, ttFollowersPrev: 1302,
+    chloe:  { approvalsOnTime: true,  igReel: 1,  ttVideo: 1, dmResponse: true,  reportDone: true  },
+    julia:  { igReel: 1, ttVideos: 2, outreach: 7,  updateSent: true  },
+    marion: { igPosts: 4, newsletter: true,  storiesDays: 3, calendarDone: true  },
+    ife:    { blogs: 2, hours: 4, dailyUpdates: 4, pressDone: true  },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// TARGETS — only edit here when benchmarks change
+// ═══════════════════════════════════════════════════════════════
+const TARGETS = {
+  chloe_igReel:   1,   // Reels per week
+  chloe_ttVideo:  1,   // TikToks per week
+  julia_igReel:   1,   // Reels per week
+  julia_ttVideos: 2,   // TikToks per week
+  julia_outreach: 7,   // Influencer contacts per month
+  marion_igPosts: 3,   // Feed posts per week (min of 3–4)
+  marion_stories: 3,   // Story days per week
+  ife_blogs:      1,   // Blog posts per month
+  ife_hours:      4,   // Hours per week
+  ife_dailyUpdates: 4, // Daily updates per week
+};
+
+// ═══════════════════════════════════════════════════════════════
+// RAG helpers
+// ═══════════════════════════════════════════════════════════════
+const RAG = {
+  green: { bg: "bg-green-100", text: "text-green-800", bar: "bg-green-500",  label: "On Track"  },
+  amber: { bg: "bg-yellow-100",text: "text-yellow-800",bar: "bg-yellow-400", label: "Close"     },
+  red:   { bg: "bg-red-100",   text: "text-red-800",   bar: "bg-red-500",    label: "Off Track" },
+  grey:  { bg: "bg-gray-100",  text: "text-gray-500",  bar: "bg-gray-200",   label: "N/A"       },
+};
+
+function getRag(p) {
+  if (p === null) return "grey";
+  if (p >= 85) return "green";
+  if (p >= 60) return "amber";
+  return "red";
+}
+function calcPct(actual, target) {
+  if (!target || actual === null) return null;
+  return Math.min(Math.round((actual / target) * 100), 150);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Components
+// ═══════════════════════════════════════════════════════════════
+
+function FollowerCard({ platform, emoji, followers, prev }) {
+  const diff = followers - prev;
+  const pctChg = prev > 0 ? ((diff / prev) * 100).toFixed(1) : 0;
+  const up = diff >= 0;
+  return (
+    <div className="bg-black rounded-2xl px-5 py-4 flex items-center justify-between flex-1">
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-base">{emoji}</span>
+          <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">{platform}</span>
+        </div>
+        <div className="text-white font-black text-2xl leading-none">{followers.toLocaleString()}</div>
+        <div className="text-gray-500 text-xs mt-1">followers</div>
+      </div>
+      <div className={`text-right ${up ? "text-green-400" : "text-red-400"}`}>
+        <div className="text-xl font-black leading-none">{up ? "+" : ""}{diff}</div>
+        <div className="text-xs font-semibold mt-0.5">{up ? "▲" : "▼"} {Math.abs(pctChg)}% this week</div>
+      </div>
+    </div>
+  );
+}
+
+function KpiRow({ label, actual, target, unit = "", yesNo = false, val = null, invert = false, monthly = false }) {
+  let p, display;
+  if (yesNo) {
+    p = val ? 100 : 0;
+    display = val ? "✓  Done" : "✗  Not done";
+  } else {
+    p = calcPct(actual, target);
+    if (invert && p !== null) p = Math.max(0, 200 - p);
+    display = actual !== null && actual !== undefined ? `${actual}${unit}  /  ${target}${unit}` : "— not entered";
+  }
+  const key = getRag(p);
+  const c = RAG[key];
+  return (
+    <div className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-sm text-gray-700">{label}</span>
+          {monthly && <span className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">monthly</span>}
+        </div>
+        <div className={`text-xs font-semibold mt-0.5 ${c.text}`}>{display}</div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="w-16 h-1.5 rounded-full bg-gray-100">
+          <div className={`h-1.5 rounded-full bar-fill ${c.bar}`} style={{ width: `${Math.min(p ?? 0, 100)}%` }} />
+        </div>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${c.bg} ${c.text}`}>{c.label}</span>
+      </div>
+    </div>
+  );
+}
+
+function MemberCard({ name, role, hours, initials, kpis }) {
+  const [open, setOpen] = useState(true);
+  const rags = kpis.map(k => {
+    if (k.yesNo) return k.val ? "green" : "red";
+    let p = calcPct(k.actual, k.target);
+    if (k.invert && p !== null) p = Math.max(0, 200 - p);
+    return getRag(p);
+  });
+  const onTrack = rags.filter(r => r === "green").length;
+  const overall = rags.includes("red") ? "red" : rags.includes("amber") ? "amber" : "green";
+  const c = RAG[overall];
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <button onClick={() => setOpen(o => !o)}
+        className="w-full bg-black px-5 py-4 flex items-center justify-between gap-3 text-left hover:bg-gray-900 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-yellow-400 flex items-center justify-center text-black font-black text-sm shrink-0">{initials}</div>
+          <div>
+            <div className="text-white font-bold text-sm leading-tight">{name}</div>
+            <div className="text-gray-400 text-xs mt-0.5">{role} · {hours}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`text-xs font-bold px-2 py-1 rounded-full ${c.bg} ${c.text}`}>{onTrack}/{rags.length} on track</span>
+          <span className="text-gray-600 text-sm">{open ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {open && (
+        <div className="px-5 py-2">
+          {kpis.map((k, i) => <KpiRow key={i} {...k} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeekHealth({ data }) {
+  const checks = [
+    data.chloe.approvalsOnTime,
+    data.chloe.igReel  >= TARGETS.chloe_igReel,
+    data.chloe.ttVideo >= TARGETS.chloe_ttVideo,
+    data.chloe.dmResponse,
+    data.chloe.reportDone,
+    data.julia.igReel    >= TARGETS.julia_igReel,
+    data.julia.ttVideos  >= TARGETS.julia_ttVideos,
+    data.julia.updateSent,
+    data.marion.igPosts    >= TARGETS.marion_igPosts,
+    data.marion.newsletter,
+    data.marion.storiesDays >= TARGETS.marion_stories,
+    data.ife.hours        >= TARGETS.ife_hours,
+  ];
+  const met = checks.filter(Boolean).length;
+  const total = checks.length;
+  const pct = Math.round((met / total) * 100);
+  const key = pct >= 85 ? "green" : pct >= 60 ? "amber" : "red";
+  const c = RAG[key];
+  const dash = 100; // stroke-dasharray total
+  const fill = Math.round((pct / 100) * dash);
+  return (
+    <div className={`rounded-2xl px-5 py-4 flex items-center justify-between ${c.bg}`}>
+      <div>
+        <div className={`text-xs font-bold uppercase tracking-wider ${c.text}`}>Week Health</div>
+        <div className={`text-3xl font-black mt-1 ${c.text}`}>{pct}%</div>
+        <div className={`text-xs mt-1 ${c.text} opacity-80`}>{met} of {total} KPIs met this week</div>
+      </div>
+      <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="3.5"/>
+        <circle cx="18" cy="18" r="15.9" fill="none" strokeWidth="3.5"
+          strokeDasharray={`${fill} ${dash - fill}`} strokeLinecap="round"
+          className={`bar-fill ${key === "green" ? "stroke-green-600" : key === "amber" ? "stroke-yellow-500" : "stroke-red-500"}`}
+        />
+      </svg>
+    </div>
+  );
+}
+
+function HowToUpdate() {
+  return (
+    <div className="space-y-4 max-w-xl">
+      <div className="bg-black text-white rounded-2xl p-5 space-y-4">
+        <p className="text-yellow-400 font-black text-sm uppercase tracking-widest">How it works</p>
+        {[
+          ["📝","Update the code file","Each week, open the file on GitHub and edit the DATA section — add follower counts and the team's numbers. No technical knowledge needed."],
+          ["🌐","GitHub hosts it free","The dashboard lives at a public URL. Anyone with the link can view it — no login required."],
+          ["🔒","Only you can edit","Only your GitHub account can change the data. The team just views the dashboard."],
+        ].map(([icon, title, desc]) => (
+          <div key={title} className="flex gap-3 text-sm">
+            <span className="text-base shrink-0">{icon}</span>
+            <div><span className="text-yellow-400 font-semibold">{title}: </span><span className="text-gray-300">{desc}</span></div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-3">
+        <p className="font-bold text-sm text-gray-800">To update each week (takes ~2 mins)</p>
+        <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+          <li>Go to your GitHub repo and open <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">tg-kpi-dashboard.html</span></li>
+          <li>Click the pencil ✏️ icon (Edit this file)</li>
+          <li>Find the <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">DATA</span> section at the top</li>
+          <li>Add a new week block by copying the previous week and updating the numbers</li>
+          <li>Add the new week key to the <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">WEEKS</span> array</li>
+          <li>Click <strong>Commit changes</strong> — dashboard updates in ~30 seconds</li>
+        </ol>
+      </div>
+
+      <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+        <p className="font-bold text-sm text-gray-800 mb-2">What each field means</p>
+        <div className="space-y-1.5 text-xs text-gray-600 font-mono">
+          {[
+            ["igFollowers",      "Instagram follower count this week"],
+            ["igFollowersPrev",  "Instagram follower count last week (for calculating the change)"],
+            ["ttFollowers",      "TikTok follower count this week"],
+            ["ttFollowersPrev",  "TikTok follower count last week"],
+            ["— CHLOE —",       ""],
+            ["approvalsOnTime",  "true or false — all content approved within 24 hrs of submission?"],
+            ["igReel",           "Number of Reels Chloe published this week (target: 1)"],
+            ["ttVideo",          "Number of TikToks Chloe published this week (target: 1)"],
+            ["dmResponse",       "true or false — DMs & comments responded to within 4 hrs on working days?"],
+            ["reportDone",       "true or false — monthly performance report submitted?"],
+            ["— JULIA —",       ""],
+            ["igReel",           "Number of Reels Julia published this week (target: 1)"],
+            ["ttVideos",         "Number of TikToks Julia published this week (target: 2)"],
+            ["outreach",         "Influencer / blogger contacts made this month — cumulative (target: 7)"],
+            ["updateSent",       "true or false — Julia sent her weekly update to Chloe?"],
+            ["— MARION —",      ""],
+            ["igPosts",          "Instagram feed posts published this week (target: 3)"],
+            ["newsletter",       "true or false — email newsletter sent this week?"],
+            ["storiesDays",      "Days Instagram Stories were posted this week (target: 3)"],
+            ["calendarDone",     "true or false — content calendar published for next month? (monthly)"],
+            ["— IFE —",         ""],
+            ["blogs",            "Blog / website posts published this month (target: 1)"],
+            ["hours",            "Hours Ife worked this week (target: 4)"],
+            ["dailyUpdates",     "Days Ife sent her daily update to Chloe this week (target: 4)"],
+            ["pressDone",        "true or false — press release drafted this month?"],
+          ].map(([field, desc], i) => (
+            desc === ""
+              ? <div key={i} className="text-gray-400 font-bold pt-2 pb-0.5 not-italic">{field}</div>
+              : <div key={i} className="flex gap-2">
+                  <span className="text-yellow-600 shrink-0 w-36">{field}</span>
+                  <span className="text-gray-500">{desc}</span>
+                </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Main App
+// ═══════════════════════════════════════════════════════════════
+function App() {
+  const [week, setWeek] = useState(WEEKS[WEEKS.length - 1]);
+  const [tab, setTab] = useState("team");
+  const d = DATA[week];
+  const T = TARGETS;
+
+  const chloeKPIs = [
+    { label: "All content approvals within 24 hrs",      yesNo: true, val: d.chloe.approvalsOnTime },
+    { label: "Instagram Reel published",                  actual: d.chloe.igReel,  target: T.chloe_igReel,  unit: " reel"  },
+    { label: "TikTok video published",                    actual: d.chloe.ttVideo, target: T.chloe_ttVideo, unit: " video" },
+    { label: "DMs & comments responded to within 4 hrs", yesNo: true, val: d.chloe.dmResponse },
+    { label: "Monthly performance report submitted",      yesNo: true, val: d.chloe.reportDone, monthly: true },
+  ];
+  const juliaKPIs = [
+    { label: "Instagram Reel published",         actual: d.julia.igReel,   target: T.julia_igReel,   unit: " reel"     },
+    { label: "TikTok videos published",          actual: d.julia.ttVideos, target: T.julia_ttVideos, unit: " videos"   },
+    { label: "Influencer / blogger outreach",    actual: d.julia.outreach, target: T.julia_outreach, unit: " contacts", monthly: true },
+    { label: "Weekly update sent to Chloe",      yesNo: true, val: d.julia.updateSent },
+  ];
+  const marionKPIs = [
+    { label: "Instagram feed posts published",   actual: d.marion.igPosts,    target: T.marion_igPosts, unit: " posts"  },
+    { label: "Email newsletter sent this week",  yesNo: true, val: d.marion.newsletter },
+    { label: "Instagram Stories posted",         actual: d.marion.storiesDays, target: T.marion_stories, unit: " days"  },
+    { label: "Content calendar published",       yesNo: true, val: d.marion.calendarDone, monthly: true },
+  ];
+  const ifeKPIs = [
+    { label: "Blog / website post published",    actual: d.ife.blogs,         target: T.ife_blogs,         unit: " posts", monthly: true },
+    { label: "Hours worked this week",           actual: d.ife.hours,         target: T.ife_hours,         unit: " hrs"  },
+    { label: "Daily updates sent to Chloe",      actual: d.ife.dailyUpdates,  target: T.ife_dailyUpdates,  unit: " days" },
+    { label: "Press release drafted",            yesNo: true, val: d.ife.pressDone, monthly: true },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Nav */}
+      <div className="bg-black px-5 py-4 flex items-center justify-between">
+        <div>
+          <span className="text-yellow-400 font-black text-lg tracking-tight">TRASH | G✕NG</span>
+          <span className="text-gray-500 text-xs ml-3 hidden sm:inline">Marketing KPI Tracker</span>
+        </div>
+        <div className="flex items-center gap-1 bg-gray-800 rounded-lg px-2 py-1.5">
+          <button onClick={() => { const i = WEEKS.indexOf(week); if (i > 0) setWeek(WEEKS[i-1]); }}
+            className="text-gray-400 hover:text-yellow-400 px-2 text-lg font-bold leading-none transition-colors">‹</button>
+          <span className="text-white text-sm font-medium w-24 text-center">w/c {week}</span>
+          <button onClick={() => { const i = WEEKS.indexOf(week); if (i < WEEKS.length-1) setWeek(WEEKS[i+1]); }}
+            className="text-gray-400 hover:text-yellow-400 px-2 text-lg font-bold leading-none transition-colors">›</button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white border-b border-gray-200 px-5">
+        <div className="flex gap-5">
+          {[["team","Team Output"],["howto","How to Update"]].map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`py-3 text-sm font-bold border-b-2 transition-colors ${tab === id ? "border-yellow-400 text-black" : "border-transparent text-gray-400 hover:text-gray-700"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
+        {tab === "team" && (
+          <>
+            {/* Follower cards */}
+            <div className="flex gap-3">
+              <FollowerCard platform="Instagram" emoji="📸" followers={d.igFollowers} prev={d.igFollowersPrev} />
+              <FollowerCard platform="TikTok"    emoji="🎵" followers={d.ttFollowers} prev={d.ttFollowersPrev} />
+            </div>
+
+            {/* Week health */}
+            <WeekHealth data={d} />
+
+            {/* Member cards */}
+            <MemberCard name="Chloe Fernandes-Mendes" role="Marketing Lead"             hours="15 hrs/wk" initials="CF" kpis={chloeKPIs} />
+            <MemberCard name="Julia Kumbu"             role="Community & Culture Intern" hours="18 hrs/wk" initials="JK" kpis={juliaKPIs} />
+            <MemberCard name="Marion Acheampong"       role="Community & Culture Intern" hours="12 hrs/wk" initials="MA" kpis={marionKPIs} />
+            <MemberCard name="Ife Segun-Ojo"           role="Community & Culture Intern" hours="4 hrs/wk"  initials="IS" kpis={ifeKPIs} />
+
+            {/* Legend */}
+            <div className="flex flex-wrap gap-4 justify-center pt-1 pb-4">
+              {["green","amber","red"].map(k => (
+                <div key={k} className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <div className={`w-2 h-2 rounded-full ${RAG[k].bar}`} />
+                  {RAG[k].label}
+                </div>
+              ))}
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <span className="bg-gray-100 text-gray-400 rounded px-1.5 py-0.5 text-xs">monthly</span>
+                Monthly KPI
+              </div>
+            </div>
+          </>
+        )}
+        {tab === "howto" && <HowToUpdate />}
+      </div>
+
+      <div className="text-center text-xs text-gray-400 pb-8 mt-4">
+        Trash Gxng Academy CIC · Marketing KPI Tracker
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
