@@ -357,7 +357,25 @@ function App() {
         if (!newWeeks.length) throw new Error("empty");
         setWeeks(newWeeks);
         setData(newData);
-        setWeek(newWeeks[newWeeks.length - 1]);
+        // Default to the most recent week that is on or before today.
+        // Week labels are "DD Mon" e.g. "14 Apr". Parse and compare to today.
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const today = new Date(); today.setHours(0,0,0,0);
+        const toDate = lbl => {
+          const p = lbl.trim().split(' ');
+          if (p.length !== 2) return null;
+          const yr = today.getFullYear();
+          const d = new Date(yr, MONTHS.indexOf(p[1]), parseInt(p[0], 10));
+          // If >6 months in the future, assume it was last year
+          if (d - today > 183 * 86400000) d.setFullYear(yr - 1);
+          return d;
+        };
+        let best = newWeeks[0];
+        for (const wk of newWeeks) {
+          const d = toDate(wk);
+          if (d && d <= today) best = wk;
+        }
+        setWeek(best);
         setStatus("ok");
       })
       .catch(e => setStatus(e.message === "empty" ? "empty" : "error"));
