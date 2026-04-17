@@ -17,38 +17,38 @@
 </head>
 <body class="bg-gray-50">
 <div id="root"></div>
- 
+
 <script type="text/babel">
 const { useState, useEffect } = React;
- 
+
 // ═══════════════════════════════════════════════════════════════
 // STEP 1 — Paste your published Google Sheet CSV URL here
 // How: File → Share → Publish to web → Entire Document → CSV → Copy link
 // ═══════════════════════════════════════════════════════════════
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTNQNh4Pj3pbGBgw8HNvgWccHJJl9yPzSNKW9-0vpqGNP6XkWqkGL8XjVg-en7Gn5kE6DtGGrGppmY/pub?output=csv";
- 
+
 // ═══════════════════════════════════════════════════════════════
 // STEP 2 — Paste the normal edit link to your Google Sheet here
 // (so the team can click straight to the sheet from the dashboard)
 // ═══════════════════════════════════════════════════════════════
 const SHEET_EDIT_URL = "https://docs.google.com/spreadsheets/d/1mrmZrkItT2FTcd3F-lOpq-gYObZmhJ1PIJEJQ25NK6Q/edit?gid=0#gid=0";
- 
+
 // ═══════════════════════════════════════════════════════════════
 // TARGETS — only edit when benchmarks change
 // ═══════════════════════════════════════════════════════════════
 const TARGETS = {
-  chloe_igReel:     1,
-  chloe_ttVideo:    1,
-  julia_igReel:     1,
-  julia_ttVideos:   2,
-  julia_outreach:   7,
-  marion_igPosts:   3,
-  marion_stories:   3,
-  ife_blogs:        1,
-  ife_hours:        4,
-  ife_dailyUpdates: 4,
+  chloe_igReel:   1,
+  chloe_ttVideo:  1,
+  chloe_stories:  3,
+  julia_igReel:   1,
+  julia_ttVideos: 2,
+  julia_outreach: 7,
+  julia_stories:  3,
+  marion_igPosts: 3,
+  marion_stories: 3,
+  ife_blogs:      1,
 };
- 
+
 // ═══════════════════════════════════════════════════════════════
 // RAG helpers
 // ═══════════════════════════════════════════════════════════════
@@ -58,7 +58,7 @@ const RAG = {
   red:   { bg: "bg-red-100",   text: "text-red-800",   bar: "bg-red-500",    label: "Off Track" },
   grey:  { bg: "bg-gray-100",  text: "text-gray-500",  bar: "bg-gray-200",   label: "N/A"       },
 };
- 
+
 function getRag(p) {
   if (p === null || p === undefined) return "grey";
   if (p >= 85) return "green";
@@ -69,28 +69,20 @@ function calcPct(actual, target) {
   if (!target || actual === null || actual === undefined) return null;
   return Math.min(Math.round((actual / target) * 100), 150);
 }
- 
+
 // ═══════════════════════════════════════════════════════════════
-// CSV parser & row → data transformer
+// CSV parser
+// Sheet has 2 header rows (section labels + column names) then data.
+// We parse by column POSITION so friendly display names can be used.
+// Column order (A=0 … U=20):
+//  0  Week
+//  1  IG Followers       2  IG Followers Prev
+//  3  TikTok Followers   4  TikTok Followers Prev
+//  5  Chloe: Approvals   6  IG Reel   7  TikTok   8  DMs   9  Stories Days
+// 10  Julia:  IG Reel   11  TikToks  12  Outreach 13  Update Sent  14  Stories Days
+// 15  Marion: IG Posts  16  Newsletter 17 Stories  18  Calendar
+// 19  Ife:    Blogs     20  Press Release
 // ═══════════════════════════════════════════════════════════════
-function parseCSV(text) {
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  return lines.slice(1).filter(l => l.trim()).map(line => {
-    const vals = [];
-    let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      if (line[i] === '"') { inQ = !inQ; }
-      else if (line[i] === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
-      else { cur += line[i]; }
-    }
-    vals.push(cur.trim());
-    const obj = {};
-    headers.forEach((h, i) => { obj[h] = vals[i] ?? ''; });
-    return obj;
-  });
-}
- 
 function toNum(v) {
   if (v === '' || v === undefined || v === null) return 0;
   return Number(v) || 0;
@@ -99,45 +91,61 @@ function toBool(v) {
   if (!v) return false;
   return ['true', 'yes', '1', 'y'].includes(String(v).toLowerCase().trim());
 }
- 
-function rowToWeekData(row) {
-  return {
-    igFollowers:     toNum(row.igFollowers),
-    igFollowersPrev: toNum(row.igFollowersPrev),
-    ttFollowers:     toNum(row.ttFollowers),
-    ttFollowersPrev: toNum(row.ttFollowersPrev),
-    chloe: {
-      approvalsOnTime: toBool(row.chloe_approvalsOnTime),
-      igReel:          toNum(row.chloe_igReel),
-      ttVideo:         toNum(row.chloe_ttVideo),
-      dmResponse:      toBool(row.chloe_dmResponse),
-      reportDone:      toBool(row.chloe_reportDone),
-    },
-    julia: {
-      igReel:     toNum(row.julia_igReel),
-      ttVideos:   toNum(row.julia_ttVideos),
-      outreach:   toNum(row.julia_outreach),
-      updateSent: toBool(row.julia_updateSent),
-    },
-    marion: {
-      igPosts:      toNum(row.marion_igPosts),
-      newsletter:   toBool(row.marion_newsletter),
-      storiesDays:  toNum(row.marion_storiesDays),
-      calendarDone: toBool(row.marion_calendarDone),
-    },
-    ife: {
-      blogs:        toNum(row.ife_blogs),
-      hours:        toNum(row.ife_hours),
-      dailyUpdates: toNum(row.ife_dailyUpdates),
-      pressDone:    toBool(row.ife_pressDone),
-    },
-  };
+
+// Full CSV parser — handles quoted cells that contain commas or newlines.
+// Google Sheets wraps multi-line header cells in quotes, which breaks a
+// simple split('\n') approach. This parses character-by-character instead.
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cur = '', inQ = false;
+  const t = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (t[i + 1] === '"') { cur += '"'; i++; } // escaped quote ""
+        else { inQ = false; }
+      } else {
+        cur += ch; // newlines inside quotes become part of the cell value
+      }
+    } else {
+      if      (ch === '"') { inQ = true; }
+      else if (ch === ',') { row.push(cur.trim()); cur = ''; }
+      else if (ch === '\n') { row.push(cur.trim()); rows.push(row); row = []; cur = ''; }
+      else { cur += ch; }
+    }
+  }
+  // flush last cell/row
+  row.push(cur.trim());
+  if (row.some(c => c !== '')) rows.push(row);
+  return rows;
 }
- 
+
+function loadSheetData(text) {
+  const rows = parseCSV(text);
+  // rows[0] = section colour headers, rows[1] = column name headers — skip both
+  const dataRows = rows.slice(2).filter(r => r[0]?.trim());
+  const weeks = [], data = {};
+  dataRows.forEach(c => {
+    const wk = c[0]?.trim();
+    if (!wk) return;
+    weeks.push(wk);
+    data[wk] = {
+      igFollowers:    toNum(c[1]),  igFollowersPrev: toNum(c[2]),
+      ttFollowers:    toNum(c[3]),  ttFollowersPrev: toNum(c[4]),
+      chloe:  { approvalsOnTime: toBool(c[5]), igReel: toNum(c[6]), ttVideo: toNum(c[7]), dmResponse: toBool(c[8]), storiesDays: toNum(c[9]) },
+      julia:  { igReel: toNum(c[10]), ttVideos: toNum(c[11]), outreach: toNum(c[12]), updateSent: toBool(c[13]), storiesDays: toNum(c[14]) },
+      marion: { igPosts: toNum(c[15]), newsletter: toBool(c[16]), storiesDays: toNum(c[17]), calendarDone: toBool(c[18]) },
+      ife:    { blogs: toNum(c[19]), pressDone: toBool(c[20]) },
+    };
+  });
+  return { weeks, data };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Components
 // ═══════════════════════════════════════════════════════════════
- 
+
 function FollowerCard({ platform, emoji, followers, prev }) {
   const diff = followers - prev;
   const pctChg = prev > 0 ? ((diff / prev) * 100).toFixed(1) : 0;
@@ -159,7 +167,7 @@ function FollowerCard({ platform, emoji, followers, prev }) {
     </div>
   );
 }
- 
+
 function KpiRow({ label, actual, target, unit = "", yesNo = false, val = null, monthly = false }) {
   let p, display;
   if (yesNo) {
@@ -189,7 +197,7 @@ function KpiRow({ label, actual, target, unit = "", yesNo = false, val = null, m
     </div>
   );
 }
- 
+
 function MemberCard({ name, role, hours, initials, kpis }) {
   const [open, setOpen] = useState(true);
   const rags = kpis.map(k => {
@@ -223,21 +231,22 @@ function MemberCard({ name, role, hours, initials, kpis }) {
     </div>
   );
 }
- 
+
 function WeekHealth({ data }) {
   const checks = [
     data.chloe.approvalsOnTime,
-    data.chloe.igReel  >= TARGETS.chloe_igReel,
-    data.chloe.ttVideo >= TARGETS.chloe_ttVideo,
+    data.chloe.igReel      >= TARGETS.chloe_igReel,
+    data.chloe.ttVideo     >= TARGETS.chloe_ttVideo,
     data.chloe.dmResponse,
-    data.chloe.reportDone,
-    data.julia.igReel    >= TARGETS.julia_igReel,
-    data.julia.ttVideos  >= TARGETS.julia_ttVideos,
+    data.chloe.storiesDays >= TARGETS.chloe_stories,
+    data.julia.igReel      >= TARGETS.julia_igReel,
+    data.julia.ttVideos    >= TARGETS.julia_ttVideos,
     data.julia.updateSent,
+    data.julia.storiesDays >= TARGETS.julia_stories,
     data.marion.igPosts     >= TARGETS.marion_igPosts,
     data.marion.newsletter,
     data.marion.storiesDays >= TARGETS.marion_stories,
-    data.ife.hours          >= TARGETS.ife_hours,
+    data.ife.blogs          >= TARGETS.ife_blogs,
   ];
   const met = checks.filter(Boolean).length;
   const total = checks.length;
@@ -262,12 +271,12 @@ function WeekHealth({ data }) {
     </div>
   );
 }
- 
+
 function HowToUpdate() {
   const connected = SHEET_EDIT_URL && SHEET_CSV_URL;
   return (
     <div className="space-y-4 max-w-xl">
- 
+
       {/* Big sheet button */}
       {connected ? (
         <a href={SHEET_EDIT_URL} target="_blank" rel="noopener noreferrer"
@@ -285,7 +294,7 @@ function HowToUpdate() {
           <div className="text-yellow-600 text-xs">Follow the one-time setup steps below</div>
         </div>
       )}
- 
+
       {/* How it works */}
       <div className="bg-black text-white rounded-2xl p-5 space-y-4">
         <p className="text-yellow-400 font-black text-sm uppercase tracking-widest">How it works</p>
@@ -303,79 +312,32 @@ function HowToUpdate() {
           </div>
         ))}
       </div>
- 
+
       {/* One-time setup */}
       <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-3">
         <p className="font-bold text-sm text-gray-800">One-time setup (do this once)</p>
         <ol className="text-sm text-gray-600 space-y-3 list-decimal list-inside">
-          <li>In your <strong>trashgxngteam</strong> Google Drive, create a new Google Sheet named <em>Marketing KPI Tracker</em>.</li>
-          <li>Copy the column headers below and paste them into <strong>cell A1</strong>.</li>
-          <li>Share the sheet with your team (anyone with the link can edit).</li>
-          <li>Go to <strong>File → Share → Publish to web</strong>, choose <em>Entire Document</em> and <em>CSV</em>, click Publish, copy the link.</li>
-          <li>Open <span className="font-mono bg-gray-100 px-1 rounded text-xs">index.html</span> on GitHub, click ✏️ Edit, then:
-            <ul className="mt-1 ml-4 space-y-1 list-disc text-xs text-gray-500">
-              <li>Paste the CSV link into <span className="font-mono bg-gray-100 px-1 rounded">SHEET_CSV_URL</span></li>
-              <li>Paste your normal sheet link into <span className="font-mono bg-gray-100 px-1 rounded">SHEET_EDIT_URL</span></li>
-            </ul>
-          </li>
-          <li>Click <strong>Commit changes</strong>. The green button above will now appear and your team can update stats directly.</li>
+          <li>Open your Google Sheet, go to <strong>Extensions → Apps Script</strong>.</li>
+          <li>Paste the setup script (provided by your admin) and click <strong>Run → setupKPITracker</strong>. This auto-formats the whole sheet with colours, dropdowns, and pre-filled week rows.</li>
+          <li>Share the sheet with your team (Editor access).</li>
+          <li>The sheet is now ready — each team member fills in their coloured section each week.</li>
         </ol>
       </div>
- 
-      {/* Column headers to copy */}
-      <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-2">
-        <p className="font-bold text-sm text-gray-800">Copy these headers into Row 1 of your Google Sheet</p>
-        <p className="text-xs text-gray-400">Select all the text below → copy → paste into cell A1</p>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-mono text-xs text-gray-700 break-all select-all leading-relaxed">
-          Week,igFollowers,igFollowersPrev,ttFollowers,ttFollowersPrev,chloe_approvalsOnTime,chloe_igReel,chloe_ttVideo,chloe_dmResponse,chloe_reportDone,julia_igReel,julia_ttVideos,julia_outreach,julia_updateSent,marion_igPosts,marion_newsletter,marion_storiesDays,marion_calendarDone,ife_blogs,ife_hours,ife_dailyUpdates,ife_pressDone
-        </div>
-      </div>
- 
-      {/* Field reference */}
-      <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-        <p className="font-bold text-sm text-gray-800 mb-3">What to enter in each column</p>
-        <div className="space-y-1 text-xs font-mono">
-          {[
-            ["Week",                  "Date label e.g.  07 Apr",                 false],
-            ["igFollowers",           "Instagram followers this week",             false],
-            ["igFollowersPrev",       "Instagram followers last week",             false],
-            ["ttFollowers",           "TikTok followers this week",                false],
-            ["ttFollowersPrev",       "TikTok followers last week",                false],
-            ["— CHLOE",              "",                                           true],
-            ["chloe_approvalsOnTime","TRUE or FALSE",                             false],
-            ["chloe_igReel",         "Number  (target: 1)",                       false],
-            ["chloe_ttVideo",        "Number  (target: 1)",                       false],
-            ["chloe_dmResponse",     "TRUE or FALSE",                             false],
-            ["chloe_reportDone",     "TRUE or FALSE  (monthly)",                  false],
-            ["— JULIA",             "",                                            true],
-            ["julia_igReel",        "Number  (target: 1)",                        false],
-            ["julia_ttVideos",      "Number  (target: 2)",                        false],
-            ["julia_outreach",      "Number  (target: 7, monthly cumulative)",    false],
-            ["julia_updateSent",    "TRUE or FALSE",                              false],
-            ["— MARION",           "",                                             true],
-            ["marion_igPosts",      "Number  (target: 3)",                        false],
-            ["marion_newsletter",   "TRUE or FALSE",                              false],
-            ["marion_storiesDays",  "Number  (target: 3)",                        false],
-            ["marion_calendarDone", "TRUE or FALSE  (monthly)",                   false],
-            ["— IFE",              "",                                             true],
-            ["ife_blogs",          "Number  (target: 1, monthly)",                false],
-            ["ife_hours",          "Number  (target: 4)",                         false],
-            ["ife_dailyUpdates",   "Number  (target: 4)",                         false],
-            ["ife_pressDone",      "TRUE or FALSE  (monthly)",                    false],
-          ].map(([field, desc, isHeader], i) =>
-            isHeader
-              ? <div key={i} className="text-yellow-600 font-bold pt-3 pb-0.5">{field} ─────────────</div>
-              : <div key={i} className="flex gap-2 text-gray-600">
-                  <span className="shrink-0 w-44 text-gray-800">{field}</span>
-                  <span>{desc}</span>
-                </div>
-          )}
-        </div>
+
+      {/* Weekly routine */}
+      <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-3">
+        <p className="font-bold text-sm text-gray-800">Every week (takes ~2 mins per person)</p>
+        <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+          <li>Open the Google Sheet using the button above.</li>
+          <li>Find your name / coloured section in the next blank week row.</li>
+          <li>Fill in your numbers — TRUE/FALSE columns have a dropdown, number columns just type the count.</li>
+          <li>Done — the dashboard updates when Tayo refreshes the page.</li>
+        </ol>
       </div>
     </div>
   );
 }
- 
+
 // ═══════════════════════════════════════════════════════════════
 // Main App
 // ═══════════════════════════════════════════════════════════════
@@ -385,20 +347,13 @@ function App() {
   const [week, setWeek]     = useState(null);
   const [tab, setTab]       = useState("team");
   const [status, setStatus] = useState("loading");
- 
+
   useEffect(() => {
     if (!SHEET_CSV_URL) { setStatus("nourl"); return; }
     fetch(SHEET_CSV_URL)
       .then(r => { if (!r.ok) throw new Error("fetch"); return r.text(); })
       .then(text => {
-        const rows = parseCSV(text);
-        const newWeeks = [], newData = {};
-        rows.forEach(row => {
-          const wk = row.Week?.trim();
-          if (!wk) return;
-          newWeeks.push(wk);
-          newData[wk] = rowToWeekData(row);
-        });
+        const { weeks: newWeeks, data: newData } = loadSheetData(text);
         if (!newWeeks.length) throw new Error("empty");
         setWeeks(newWeeks);
         setData(newData);
@@ -407,22 +362,23 @@ function App() {
       })
       .catch(e => setStatus(e.message === "empty" ? "empty" : "error"));
   }, []);
- 
+
   const d = week ? data[week] : null;
   const T = TARGETS;
- 
+
   const chloeKPIs = d ? [
     { label: "All content approvals within 24 hrs",      yesNo: true, val: d.chloe.approvalsOnTime },
-    { label: "Instagram Reel published",                  actual: d.chloe.igReel,  target: T.chloe_igReel,  unit: " reel"  },
-    { label: "TikTok video published",                    actual: d.chloe.ttVideo, target: T.chloe_ttVideo, unit: " video" },
+    { label: "Instagram Reel published",                  actual: d.chloe.igReel,      target: T.chloe_igReel,  unit: " reel"  },
+    { label: "TikTok video published",                    actual: d.chloe.ttVideo,     target: T.chloe_ttVideo, unit: " video" },
     { label: "DMs & comments responded to within 4 hrs", yesNo: true, val: d.chloe.dmResponse },
-    { label: "Monthly performance report submitted",      yesNo: true, val: d.chloe.reportDone, monthly: true },
+    { label: "Instagram Stories days posted",             actual: d.chloe.storiesDays, target: T.chloe_stories, unit: " days"  },
   ] : [];
   const juliaKPIs = d ? [
-    { label: "Instagram Reel published",      actual: d.julia.igReel,   target: T.julia_igReel,   unit: " reel"      },
-    { label: "TikTok videos published",       actual: d.julia.ttVideos, target: T.julia_ttVideos, unit: " videos"    },
-    { label: "Influencer / blogger outreach", actual: d.julia.outreach, target: T.julia_outreach, unit: " contacts", monthly: true },
+    { label: "Instagram Reel published",      actual: d.julia.igReel,      target: T.julia_igReel,   unit: " reel"      },
+    { label: "TikTok videos published",       actual: d.julia.ttVideos,    target: T.julia_ttVideos, unit: " videos"    },
+    { label: "Influencer / blogger outreach", actual: d.julia.outreach,    target: T.julia_outreach, unit: " contacts", monthly: true },
     { label: "Weekly update sent to Chloe",   yesNo: true, val: d.julia.updateSent },
+    { label: "Instagram Stories days posted", actual: d.julia.storiesDays, target: T.julia_stories,  unit: " days"      },
   ] : [];
   const marionKPIs = d ? [
     { label: "Instagram feed posts published",  actual: d.marion.igPosts,     target: T.marion_igPosts, unit: " posts" },
@@ -431,15 +387,13 @@ function App() {
     { label: "Content calendar published",      yesNo: true, val: d.marion.calendarDone, monthly: true },
   ] : [];
   const ifeKPIs = d ? [
-    { label: "Blog / website post published", actual: d.ife.blogs,        target: T.ife_blogs,        unit: " posts", monthly: true },
-    { label: "Hours worked this week",        actual: d.ife.hours,        target: T.ife_hours,        unit: " hrs"   },
-    { label: "Daily updates sent to Chloe",   actual: d.ife.dailyUpdates, target: T.ife_dailyUpdates, unit: " days"  },
+    { label: "Blog / website post published", actual: d.ife.blogs, target: T.ife_blogs, unit: " posts", monthly: true },
     { label: "Press release drafted",         yesNo: true, val: d.ife.pressDone, monthly: true },
   ] : [];
- 
+
   return (
     <div className="min-h-screen bg-gray-50">
- 
+
       {/* Nav */}
       <div className="bg-black px-5 py-4 flex items-center justify-between">
         <div>
@@ -456,7 +410,7 @@ function App() {
           </div>
         )}
       </div>
- 
+
       {/* Tabs */}
       <div className="bg-white border-b border-gray-200 px-5">
         <div className="flex gap-5">
@@ -468,9 +422,9 @@ function App() {
           ))}
         </div>
       </div>
- 
+
       <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
- 
+
         {tab === "team" && (
           <>
             {status === "loading" && (
@@ -535,17 +489,17 @@ function App() {
             )}
           </>
         )}
- 
+
         {tab === "howto" && <HowToUpdate />}
       </div>
- 
+
       <div className="text-center text-xs text-gray-400 pb-8 mt-4">
         Trash Gxng Academy CIC · Marketing KPI Tracker
       </div>
     </div>
   );
 }
- 
+
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
